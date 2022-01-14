@@ -36,6 +36,10 @@ class Graph:
         self.edges = edges
         self.nodes = Tensor(list(range(len(node_attribues))))
 
+        self.edge_attributes_size = len(self.edge_attributes)
+        self.node_attributes_size = len(self.node_attributes)
+        self.global_attributes_size = len(self.global_attributes)
+
     def get_sender_attributes(self) -> Tensor:
         """Returns the attributes of all sender nodes"""
         sender_indexes = self.edges[:, 0]
@@ -65,3 +69,25 @@ class Graph:
         size_edge_attributes = self.edge_attributes.shape[1]
         outgoing_edge_attributes = torch.masked_select(self.edge_attributes, mask_outgoing_edge).reshape([-1, size_edge_attributes])
         return outgoing_edge_attributes.clone()
+
+
+    def sum_attributes(self, other: "Graph"):
+        if not self.edges == other.edges:
+            raise ValueError("Graphs must have the same structure.")
+        if not all([
+            self.edge_attributes_size == other.edge_attributes_size,
+            self.node_attributes_size == other.node_attributes_size,
+            self.global_attributes_size == other.global_attributes_size
+        ]):
+            raise ValueError("Graph attributes must have the same sizes.")
+
+        new_edge_attributes = self.edge_attributes.add(other.edge_attributes)
+        new_node_attributes = self.node_attributes.add(other.node_attributes)
+        new_global_attributes = self.global_attributes.add(other.global_attributes)
+
+        return Graph(
+            new_node_attributes,
+            new_edge_attributes,
+            new_global_attributes,
+            self.edges
+        )
