@@ -108,9 +108,9 @@ class NodeBlock (nn.Module):
 
     def __init__(
         self,
-        receiving_edge_aggregator: Aggregator,
-        sending_edge_aggregator: Aggregator,
         node_attribute_update_function,
+        receiving_edge_aggregator: Aggregator = None,
+        sending_edge_aggregator: Aggregator = None,
         use_receiving_edge_attributes=True,
         use_sending_edge_attributes=True,
         use_node_attributes=True,
@@ -287,3 +287,35 @@ class GlobalBlock (nn.Module):
         graph.global_attributes = new_global_attributes
 
         return graph
+
+
+class GN (nn.Module):
+    """Module representing a Graph Network"""
+    def __init__(
+        self,
+        edge_block = None,
+        node_block = None,
+        global_block = None
+    ):
+        super().__init__()
+
+        blocks = []
+        if edge_block:
+            blocks.append(edge_block)
+        if node_block:
+            blocks.append(node_block)
+        if global_block:
+            blocks.append(global_block)
+
+        self.block_sequence = nn.Sequential(blocks)
+
+    def forward(self, graph: Graph):
+        """Defines the computation performed at every call.
+        Args:
+        - graph:
+            <<type>>: Graph
+        Returns:
+        - updated_graph:
+            <<type>>: Graph
+        """
+        return self.block_sequence(graph)
