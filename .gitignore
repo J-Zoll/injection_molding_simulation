@@ -6,3 +6,6 @@ __pycache__/
 
 # generated data
 data
+
+# cloud storage
+.DS_Store
