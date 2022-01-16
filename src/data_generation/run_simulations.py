@@ -61,9 +61,10 @@ if not os.path.isdir(args.output_dir):
     raise ValueError('<output_dir> must be a path to a valid directory.')
 
 # unpickle all study objects in input_dir
-file_names = os.listdir(args.input_dir)
+file_names = os.listdir(os.path.abspath(args.input_dir))
 pickle_file_names = filter(lambda fn: fn.endswith(".pickle"), file_names)
-pickle_file_paths = [os.path.join(args.input_dir, pfn) for pfn in pickle_file_names]
+pickle_file_paths = [os.path.abspath(os.path.join(args.input_dir, pfn)) for pfn in pickle_file_names]
+print(pickle_file_paths)
 study_list = []
 for pfp in pickle_file_paths:
     with open(pfp, "rb") as pf:
@@ -74,8 +75,6 @@ study_list = sorted(study_list, key=lambda s: s.name)
 
 # perform simulation with moldflow
 for s in tqdm(study_list):
-    print(f"Simulating study {s.name}", end="\r")
-
     #Create working directory
     path = os.path.abspath(os.path.join(args.output_dir, s.name))
     os.mkdir(path)
@@ -156,5 +155,3 @@ for s in tqdm(study_list):
             (output, err) = p.communicate()
             temp_name = os.path.join(path, f"{study_name}.xml")
             os.rename(temp_name, temp_name.replace(".xml", f"_{value}.xml"))
-
-print("", end="\r")
