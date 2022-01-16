@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 import os
-from time import sleep
 from study import generators
 from tqdm import tqdm
 import pickle
