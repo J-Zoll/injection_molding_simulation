@@ -31,9 +31,10 @@ parser.add_argument(
     dest="output_dir"
 )
 
-
 # verify arguments
 args = parser.parse_args()
+print(args.input_dir)
+print(args.output_dir)
 
 if not args.study_generator in generators.keys():
     raise ValueError("<study_generator> must be a valid generator.")
