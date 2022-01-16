@@ -9,8 +9,6 @@ import subprocess
 from argparse import ArgumentParser
 import pickle
 
-from pyrsistent import optional
-
 import pythoncom
 import win32com.client
 import yaml
@@ -64,17 +62,16 @@ if not os.path.isdir(args.output_dir):
 file_names = os.listdir(os.path.abspath(args.input_dir))
 pickle_file_names = filter(lambda fn: fn.endswith(".pickle"), file_names)
 pickle_file_paths = [os.path.abspath(os.path.join(args.input_dir, pfn)) for pfn in pickle_file_names]
-print(pickle_file_paths)
-study_list = []
-for pfp in pickle_file_paths:
-    with open(pfp, "rb") as pf:
-        obj = pickle.load(pf)
-        if isinstance(obj, Study):
-            study_list.append(obj)
-study_list = sorted(study_list, key=lambda s: s.name)
+pickle_file_paths = sorted(pickle_file_paths)
 
 # perform simulation with moldflow
-for s in tqdm(study_list):
+for pfp in tqdm(pickle_file_paths):
+    with open(pfp, "rb") as pf:
+        obj = pickle.load(pf)
+        if not isinstance(obj, Study):
+            continue
+    s = obj
+
     #Create working directory
     path = os.path.abspath(os.path.join(args.output_dir, s.name))
     os.mkdir(path)
