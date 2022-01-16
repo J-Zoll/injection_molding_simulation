@@ -36,13 +36,17 @@ parser = ArgumentParser(
 )
 
 parser.add_argument(
-    "input_dir",
+    "-i", "--input_dir",
+    dest="input_dir",
     type=str,
-    help="Directory containing pickled Study Objects."
+    help="Directory containing pickled Study Objects.",
+    default=os.getcwd(),
+    required=False
     )
 
 parser.add_argument(
-    "output_dir",
+    "-o", "--output_dir",
+    dest="output_dir",
     type=str,
     help="Directory to place the output files in.",
     default=os.getcwd(),
