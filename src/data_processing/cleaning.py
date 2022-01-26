@@ -1,10 +1,10 @@
 from typing import Iterable, Tuple
-import patran_parsing
+from data_processing import patran_parsing
 import lxml.objectify
 import os
 import pandas as pd
 from tqdm import tqdm
-from util import parse_to_float_list
+from data_processing.util import parse_to_float_list
 
 
 def clean_whole_dataset(path_to_dataset: str) -> None:
