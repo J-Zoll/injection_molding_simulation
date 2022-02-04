@@ -8,6 +8,7 @@ from data_processing.util import parse_to_float_list
 from torch import LongTensor, Tensor
 import torch
 
+
 class InjectionMoldingDataset(Dataset):
     def __init__(self, root: str):
         """Folder structure:
@@ -29,10 +30,8 @@ class InjectionMoldingDataset(Dataset):
     def processed_file_names(self) -> Union[str, List[str], Tuple]:
         return os.listdir(os.path.join(self.root, "processed"))[:-2]
 
-
     def download(self):
         pass
-
     
     def process(self):
         CONNECTION_RANGE = .003
@@ -47,6 +46,7 @@ class InjectionMoldingDataset(Dataset):
             # calculate edges and edge_distances
             edge_list = preprocessing.calculate_edges(node_positions, CONNECTION_RANGE)
             edge_index = LongTensor(edge_list).T
+            elementwise_distances = preprocessing.calculate_elementwise_distances(node_positions, edge_list)
             distances = preprocessing.calculate_distances(node_positions, edge_list)
 
             # calculate fill_states
@@ -61,13 +61,17 @@ class InjectionMoldingDataset(Dataset):
                 new_fs = Tensor(preprocessing.encode_fill_state(fill_states[t + 1]))
                 target_node_attributes = new_fs
 
-                edge_attributes = Tensor(distances)
+                edge_attributes = Tensor(elementwise_distances)
+                edge_weight = Tensor(distances)
+
+                node_positions = Tensor(node_positions)
 
                 # create data object
                 data = Data(
                     x=node_attributes,
                     edge_index=edge_index,
                     edge_attr=edge_attributes,
+                    edge_weight=edge_weight,
                     y=target_node_attributes,
                     pos=node_positions,
                     study=path_to_raw_study_data,
@@ -76,10 +80,8 @@ class InjectionMoldingDataset(Dataset):
                 torch.save(data, os.path.join(self.processed_dir, f"data_{data_counter}.pt"))
                 data_counter += 1
 
-
     def len(self):
         return len(self.processed_file_names)
-
 
     def get(self, idx):
         data = torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
