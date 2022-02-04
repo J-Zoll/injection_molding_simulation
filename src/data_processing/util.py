@@ -1,5 +1,6 @@
-from typing import Iterable
+from typing import Iterable, List
 import math
+import numpy as np
 
 
 def discretize(step_size: float, xs: Iterable[float]) -> Iterable[float]:
@@ -23,12 +24,18 @@ def binary_aggregate(step_size: float, xs: Iterable[float], condition: str) -> I
     return agg_xs
 
 
-def componentwise_distance(p1: Iterable[float], p2: Iterable[float]) -> Iterable[float]:
+def elementwise_distance(p1: Iterable[float], p2: Iterable[float]) -> List[float]:
     return [abs(c1 - c2) for c1, c2 in zip(p1, p2)]
 
 
+def distance(p1: Iterable[float], p2: Iterable[float]) -> float:
+    p1 = np.array(p1)
+    p2 = np.array(p2)
+    return np.sqrt(np.sum((p1 - p2) ** 2))
+
+
 def parse_to_float_list(string: str) -> Iterable[float]:
-    string = string[1:-1] # remove parenthesis
+    string = string[1:-1]  # remove parenthesis
     str_numbers = string.split(", ")
     numbers = [float(f) for f in str_numbers]
     return tuple(numbers)

@@ -1,6 +1,7 @@
 from typing import Iterable, Tuple, List
-from util import binary_aggregate, elementwise_distance, discretize, distance
 from scipy.spatial import KDTree
+
+from .util import binary_aggregate, elementwise_distance, discretize, distance
 
 
 def calculate_fill_states(
