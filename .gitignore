@@ -13,3 +13,6 @@ data
 
 # jupyter notebook
 .ipynb_checkpoints
+
+# environment
+env
