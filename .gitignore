@@ -1,11 +1,18 @@
 # python
-__pycache__/
+__pycache__
 
 # ide
-.vscode/
+.vscode
+.idea
 
 # generated data
 data
 
-# cloud storage
+# apple file system
 .DS_Store
+
+# jupyter notebook
+.ipynb_checkpoints
+
+# environment
+env
