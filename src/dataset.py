@@ -10,33 +10,26 @@ import torch
 
 
 class InjectionMoldingDataset(Dataset):
-    def __init__(self, root: str):
-        """Folder structure:
-        root: 
-            |- raw: (downloaded dataset)
-            |- processed: (processed data)
-        """
+    def __init__(self, root: str, connection_range: float, time_step_size: float):
+        super().__dict__["connection_range"] = connection_range
+        super().__dict__["time_step_size"] = time_step_size
         super().__init__(root)
 
-        
     @property
     def raw_file_names(self) -> Union[str, List[str], Tuple]:
         NUM_STUDIES = 50
         file_names = [f"plate_{str(n).zfill(6)}" for n in range(NUM_STUDIES)]
         return file_names
-
     
     @property
-    def processed_file_names(self) -> Union[str, List[str], Tuple]:
-        return os.listdir(os.path.join(self.root, "processed"))[:-2]
+    def processed_file_names(self):
+        # trigger reprocessing
+        return []
 
     def download(self):
         pass
-    
-    def process(self):
-        CONNECTION_RANGE = .003
-        TIME_STEP_SIZE = .3
 
+    def process(self):
         data_counter = 0
         for path_to_raw_study_data in tqdm(self.raw_paths, desc="process studies"):
             df_study = pd.read_csv(f"{path_to_raw_study_data}.csv")
@@ -44,13 +37,13 @@ class InjectionMoldingDataset(Dataset):
             node_positions = [parse_to_float_list(p) for p in df_study.position]
             
             # calculate edges and edge_distances
-            edge_list = preprocessing.calculate_edges(node_positions, CONNECTION_RANGE)
+            edge_list = preprocessing.calculate_edges(node_positions, self.connection_range)
             edge_index = LongTensor(edge_list).T
             elementwise_distances = preprocessing.calculate_elementwise_distances(node_positions, edge_list)
             distances = preprocessing.calculate_distances(node_positions, edge_list)
 
             # calculate fill_states
-            fill_states = preprocessing.calculate_fill_states(TIME_STEP_SIZE, df_study.fill_time)
+            fill_states = preprocessing.calculate_fill_states(self.time_step_size, df_study.fill_time)
 
             for t, _ in enumerate(fill_states[:-1]):
                 # fill_state at the beginning of the time step
@@ -75,14 +68,15 @@ class InjectionMoldingDataset(Dataset):
                     y=target_node_attributes,
                     pos=node_positions,
                     study=path_to_raw_study_data,
-                    time=t * TIME_STEP_SIZE
+                    time=t * self.time_step_size
                 )
                 torch.save(data, os.path.join(self.processed_dir, f"data_{data_counter}.pt"))
                 data_counter += 1
 
     def len(self):
-        return len(self.processed_file_names)
+        file_names = os.listdir(self.processed_dir)
+        data_file_names = [fn for fn in file_names if fn.startswith("data")]
+        return len(data_file_names)
 
     def get(self, idx):
-        data = torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
-        return data
+        return torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
