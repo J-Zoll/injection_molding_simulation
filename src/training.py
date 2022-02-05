@@ -9,17 +9,7 @@ from torch_geometric.data import Dataset
 from modules.fillsimnet import FillSimNet
 from dataset import InjectionMoldingDataset
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-def load_data(path_to_dataset: str, batch_size=1) -> Tuple[Dataset, DataLoader, DataLoader]:
-    dataset = InjectionMoldingDataset(path_to_dataset)
-    split_index = int(len(dataset) * 0.8)
-    train_data = dataset[:split_index]
-    test_data = dataset[split_index:]
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, pin_memory=True)
-    test_loader = DataLoader(test_data, pin_memory=True)
-    return dataset, train_loader, test_loader
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_epoch(loader: DataLoader, optimizer, criterion, model):
@@ -59,6 +49,7 @@ def test_epoch(loader: DataLoader, model):
     total_nodes = 0
     with torch.no_grad():
         for data in tqdm(loader, desc="test"):
+            data.to(device)
             pred = model(data.x, data.edge_index, data.edge_weight)
             correct, total = evaluate(pred, data.y)
             correct_nodes += correct
@@ -67,18 +58,30 @@ def test_epoch(loader: DataLoader, model):
 
 
 def main():
-    # model_training parameters
-    NUM_GRAPHS_PER_BATCH = 15
-    LEARNING_RATE = 0.001
-    NODE_EMBEDDING_SIZE = 128
-    NUM_EPOCHS = 1000
-
-    # data
-    PATH_TO_DATASET = os.path.abspath("/Users/jonas/Documents/Bachelorarbeit/injection_molding_simulation/data")
-
     torch.manual_seed(42)
 
-    dataset, train_loader, test_loader = load_data(PATH_TO_DATASET, batch_size=NUM_GRAPHS_PER_BATCH)
+    # model_training parameters
+    BATCH_SIZE = 8
+    LEARNING_RATE = 0.01
+    NODE_EMBEDDING_SIZE = 128
+    NUM_EPOCHS = 1000
+    CONNECTION_RANGE = 0.003
+    TIME_STEP_SIZE = .5
+
+    # data directory
+    SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+    PATH_TO_DATASET = os.path.join(os.path.dirname(SCRIPT_PATH), "data")
+
+    dataset = InjectionMoldingDataset(PATH_TO_DATASET, CONNECTION_RANGE, TIME_STEP_SIZE)
+
+    # split data in training data and test data
+    split_index = int(len(dataset) * 0.8)
+    train_data = dataset[:split_index]
+    test_data = dataset[split_index:]
+
+    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(test_data)
+
     model = FillSimNet(dataset.num_features, NODE_EMBEDDING_SIZE, 2)
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
@@ -89,7 +92,7 @@ def main():
     stats = []
     for epoch in range(NUM_EPOCHS):
         loss, train_accuracy = train_epoch(train_loader, optimizer, criterion, model)
-        torch.save(model.state_dict(), "../data/trained_models/trained_model.pickle")
+        torch.save(model.state_dict(), "./data/trained_models/trained_model.pickle")
         test_accuracy = test_epoch(test_loader, model)
         stats.append((epoch, loss, train_accuracy, test_accuracy))
         print(f"Epoch {epoch} | loss: {loss}    train_accuracy: {train_accuracy}    test_accuracy: {test_accuracy}")
