@@ -9,14 +9,16 @@ from torch_geometric.data import Dataset
 from modules.fillsimnet import FillSimNet
 from dataset import InjectionMoldingDataset
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 def load_data(path_to_dataset: str, batch_size=1) -> Tuple[Dataset, DataLoader, DataLoader]:
     dataset = InjectionMoldingDataset(path_to_dataset)
     split_index = int(len(dataset) * 0.8)
     train_data = dataset[:split_index]
     test_data = dataset[split_index:]
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_data)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, pin_memory=True)
+    test_loader = DataLoader(test_data, pin_memory=True)
     return dataset, train_loader, test_loader
 
 
@@ -27,6 +29,7 @@ def train_epoch(loader: DataLoader, optimizer, criterion, model):
     accuracy = 0
 
     for batch in tqdm(loader, desc="train"):
+        batch.to(device)
         optimizer.zero_grad()
         out = model(batch.x, batch.edge_index, batch.edge_weight)
         loss = criterion(out, batch.y)
@@ -65,7 +68,7 @@ def test_epoch(loader: DataLoader, model):
 
 def main():
     # model_training parameters
-    NUM_GRAPHS_PER_BATCH = 1
+    NUM_GRAPHS_PER_BATCH = 15
     LEARNING_RATE = 0.001
     NODE_EMBEDDING_SIZE = 128
     NUM_EPOCHS = 1000
@@ -76,8 +79,8 @@ def main():
     torch.manual_seed(42)
 
     dataset, train_loader, test_loader = load_data(PATH_TO_DATASET, batch_size=NUM_GRAPHS_PER_BATCH)
-
     model = FillSimNet(dataset.num_features, NODE_EMBEDDING_SIZE, 2)
+    model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
