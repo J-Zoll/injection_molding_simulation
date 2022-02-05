@@ -10,8 +10,9 @@ import torch
 
 
 class InjectionMoldingDataset(Dataset):
-    def __init__(self, root: str, connection_range: float, time_step_size: float):
+    def __init__(self, root: str, connection_range: float, time_step_size: float, skip_processing=False):
         super().__dict__["connection_range"] = connection_range
+        super().__dict__["skip_processing"] = skip_processing
         super().__dict__["time_step_size"] = time_step_size
         super().__init__(root)
 
@@ -23,6 +24,8 @@ class InjectionMoldingDataset(Dataset):
     
     @property
     def processed_file_names(self):
+        if self.skip_processing:
+            return [fn for fn in os.listdir(self.processed_dir) if fn.startswith("data")]
         # trigger reprocessing
         return []
 
