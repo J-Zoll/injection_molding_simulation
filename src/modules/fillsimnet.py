@@ -24,9 +24,9 @@ class FillSimNet (nn.Module):
 
         # message passing
         x = self.conv1(x, edge_index, edge_weight)
-        x = x.relu()
+        x = F.relu(x)
         x = self.conv2(x, edge_index, edge_weight)
-        x = x.relu()
+        x = F.relu(x)
 
         # decoding
         x = self.decoder(x)
