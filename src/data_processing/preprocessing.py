@@ -83,7 +83,7 @@ def process_raw_file(
         time_step_size: float
 ):
     """Process a raw study csv-file into multiple graph data objects stored at output_dir"""
-    df_study = pd.read_csv(f"{raw_file_path}.csv")
+    df_study = pd.read_csv(raw_file_path)
 
     raw_dir, raw_file_name = os.path.split(raw_file_path)
     study_name, _ = os.path.splitext(raw_file_name)
