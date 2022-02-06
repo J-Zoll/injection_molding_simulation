@@ -3,8 +3,6 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 import torch
 import pandas as pd
-from typing import Tuple
-from torch_geometric.data import Dataset
 
 from modules.fillsimnet import FillSimNet
 from dataset import InjectionMoldingDataset
@@ -65,14 +63,14 @@ def main():
     LEARNING_RATE = 0.01
     NODE_EMBEDDING_SIZE = 128
     NUM_EPOCHS = 1000
-    CONNECTION_RANGE = 0.003
-    TIME_STEP_SIZE = .5
+    CONNECTION_RANGE = 0.005
+    TIME_STEP_SIZE = .05
 
     # data directory
     SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
     PATH_TO_DATASET = os.path.join(os.path.dirname(SCRIPT_PATH), "data")
 
-    dataset = InjectionMoldingDataset(PATH_TO_DATASET, CONNECTION_RANGE, TIME_STEP_SIZE)
+    dataset = InjectionMoldingDataset(PATH_TO_DATASET, CONNECTION_RANGE, TIME_STEP_SIZE, skip_processing=True)
 
     # split data in training data and test data
     split_index = int(len(dataset) * 0.8)
