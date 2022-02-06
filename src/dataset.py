@@ -1,13 +1,13 @@
-from torch_geometric.data import Dataset
-import pandas as pd
 import os
-from tqdm import tqdm
 from typing import Union, List, Tuple
-from data_processing import preprocessing
-from data_processing.util import parse_to_float_list
-from torch import LongTensor, Tensor
-import shutil
+import multiprocessing as mp
+import functools
+
 import torch
+from torch_geometric.data import Dataset
+from tqdm import tqdm
+
+from data_processing import preprocessing
 
 
 class InjectionMoldingDataset(Dataset):
@@ -35,14 +35,15 @@ class InjectionMoldingDataset(Dataset):
 
     def process(self):
         self.clear_processed_dir()
-
-        for raw_file_path in tqdm(self.raw_paths, desc="process studies"):
-            preprocessing.process_raw_file(
-                raw_file_path,
-                self.processed_dir,
-                self.connection_range,
-                self.time_step_size
-            )
+        processing_function = functools.partial(
+            preprocessing.process_raw_file,
+            output_dir=self.processed_dir,
+            connection_range=self.connection_range,
+            time_step_size=self.time_step_size
+        )
+        pool = mp.Pool()
+        for _ in tqdm(pool.imap_unordered(processing_function, self.raw_paths), total=len(self.raw_paths)):
+            pass
 
     def len(self):
         file_names = os.listdir(self.processed_dir)
@@ -54,8 +55,6 @@ class InjectionMoldingDataset(Dataset):
 
     def clear_processed_dir(self):
         """Removes all files that get generated during processing"""
-        print("Clearing processed_dir..")
-
         # list files to delete
         files_to_delete = ["pre_filter.pt", "pre_transform.pt"]
         for fn in os.listdir(self.processed_dir):
@@ -67,5 +66,3 @@ class InjectionMoldingDataset(Dataset):
             fp = os.path.join(self.processed_dir, fn)
             if os.path.isfile(fp):
                 os.remove(fp)
-
-        print("Finished clearing!")
