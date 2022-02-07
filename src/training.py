@@ -29,6 +29,7 @@ def train_epoch(loader: DataLoader, optimizer, criterion, model):
         correct_nodes += correct
         total_nodes += total
         accuracy = correct_nodes / total_nodes
+        print(loss.item())
 
     return running_loss, accuracy
 
@@ -59,9 +60,9 @@ def main():
     torch.manual_seed(42)
 
     # model_training parameters
-    BATCH_SIZE = 8
+    BATCH_SIZE = 2
     LEARNING_RATE = 0.01
-    NODE_EMBEDDING_SIZE = 128
+    NODE_EMBEDDING_SIZE = 64
     NUM_EPOCHS = 1000
     CONNECTION_RANGE = 0.005
     TIME_STEP_SIZE = .05
@@ -80,7 +81,7 @@ def main():
     train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_data)
 
-    model = FillSimNet(dataset.num_features, NODE_EMBEDDING_SIZE, 2)
+    model = FillSimNet(dataset.num_features, NODE_EMBEDDING_SIZE, 2, 5)
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
