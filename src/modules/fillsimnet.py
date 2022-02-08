@@ -33,6 +33,6 @@ class FillSimNet (nn.Module):
         x = self.decoder(x)
 
         # classification
-        out = F.softmax(x, dim=1)
+        # x = F.softmax(x, dim=1)
 
-        return out
+        return x
