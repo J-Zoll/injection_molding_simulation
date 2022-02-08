@@ -6,13 +6,18 @@ import pandas as pd
 import json
 import time
 
+from training import Training
+from dataset import InjectionMoldingDataset
+from modules.fillsimnet import FillSimNet
+
 DEBUG = True
 HYPER_PARAMETERS = {
     "connection_range": [0.003, 0.004, 0.005, 0.006],
     "time_step_size": [0.02, 0.05, 0.08, 0.12],
     "num_conv_layers": [1, 2, 3, 4, 5, 6]
 }
-OUTPUT_DIR = "/Users/jonas/Documents/Bachelorarbeit/injection_molding_simulation/data/training"
+DATA_DIR = os.path.abspath("./data")
+OUTPUT_DIR = os.path.abspath("./data/training")
 TRAINED_MODEL_DIR = osp.join(OUTPUT_DIR, "trained_models")
 TRAINING_LOG_DIR = osp.join(OUTPUT_DIR, "training_logs")
 TRAINING_CONFIGURATION_DIR = osp.join(OUTPUT_DIR, "training_configurations")
@@ -23,7 +28,7 @@ def main():
 
     for hyper_parameters in all_hyperparameter_combinations:
         trained_model, training_log = run_training(hyper_parameters)
-        save_training_data(trained_model, training_log)
+        save_training_data(hyper_parameters, trained_model, training_log)
 
 
 def get_combinations(parameters: Dict) -> List[Dict]:
@@ -46,7 +51,19 @@ def get_combinations(parameters: Dict) -> List[Dict]:
 
 
 def run_training(hyperparameters):
-    pass
+    model = FillSimNet(2, 64, 2, hyperparameters["num_conv_layers"])
+    criterion = torch.nn.CrossEntropyLoss()
+    dataset = InjectionMoldingDataset(
+        DATA_DIR,
+        hyperparameters["connection_range"],
+        hyperparameters["time_step_size"],
+        skip_processing=False)
+
+    t = Training(model, criterion, dataset, batch_size=8, num_epochs=3)
+    t.run()
+    training_log = t.get_log()
+    trained_model = t.model
+    return trained_model, training_log
 
 
 def save_training_data(hyperparameters, trained_model, training_log: pd.DataFrame):
@@ -106,5 +123,5 @@ def make_output_dirs():
         os.mkdir(TRAINING_CONFIGURATION_DIR)
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
