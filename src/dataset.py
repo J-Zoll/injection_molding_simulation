@@ -1,25 +1,23 @@
 import os
-import os.path as osp
 import sys
-import warnings
 from typing import Union, List, Tuple
 import multiprocessing as mp
 import functools
 
 import torch
 from torch_geometric.data import Dataset
-from torch_geometric.data.makedirs import makedirs
 from tqdm import tqdm
 
 from data_processing import preprocessing
+from config import Config
 
 
 class InjectionMoldingDataset(Dataset):
-    def __init__(self, root: str, connection_range: float, time_step_size: float, skip_processing=False):
+    def __init__(self, connection_range: float, time_step_size: float, skip_processing=False):
         super().__dict__["connection_range"] = connection_range
         super().__dict__["time_step_size"] = time_step_size
         super().__dict__["skip_processing"] = skip_processing
-        super().__init__(root)
+        super().__init__(Config.DATA_DIR)
         if not self.skip_processing:
             print('Processing...', file=sys.stderr)
             self.process()

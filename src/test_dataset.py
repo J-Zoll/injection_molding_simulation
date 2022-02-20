@@ -1,6 +1,6 @@
-import os.path
 import unittest
 from dataset import InjectionMoldingDataset
+from config import Config
 
 
 class TestInjectionMoldingDataset (unittest.TestCase):
@@ -9,9 +9,8 @@ class TestInjectionMoldingDataset (unittest.TestCase):
         """Test whether processing runs without raising an Exception"""
         CONNECTION_RANGE = .003
         TIME_STEP_SIZE = 3
-        DATA_ROOT_DIR = os.path.abspath("/Users/jonas/Documents/Bachelorarbeit/injection_molding_simulation/data")
         dataset = InjectionMoldingDataset(
-            DATA_ROOT_DIR,
+            Config.DATA_DIR,
             CONNECTION_RANGE,
             TIME_STEP_SIZE,
             skip_processing=False

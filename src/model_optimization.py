@@ -9,18 +9,19 @@ import time
 from training import Training
 from dataset import InjectionMoldingDataset
 from modules.fillsimnet import FillSimNet
+from config import Config
 
 DEBUG = True
 HYPER_PARAMETERS = {
-    "connection_range": [0.003, 0.004, 0.005, 0.006],
-    "time_step_size": [0.02, 0.05, 0.08, 0.12],
+    "connection_range": [0.004, 0.005, 0.006],
+    "time_step_size": [0.03, 0.06, 0.09, 0.12],
     "num_conv_layers": [1, 2, 3, 4, 5, 6]
 }
-DATA_DIR = os.path.abspath("./data")
-OUTPUT_DIR = os.path.abspath("./data/training")
-TRAINED_MODEL_DIR = osp.join(OUTPUT_DIR, "trained_models")
-TRAINING_LOG_DIR = osp.join(OUTPUT_DIR, "training_logs")
-TRAINING_CONFIGURATION_DIR = osp.join(OUTPUT_DIR, "training_configurations")
+OUTPUT_DIR = Config.DATA_DIR / "training"
+TRAINED_MODEL_DIR = OUTPUT_DIR / "trained_models"
+TRAINING_LOG_DIR = OUTPUT_DIR / "training_logs"
+TRAINING_CONFIGURATION_DIR = OUTPUT_DIR / "training_configurations"
+last_dataset_conf = None
 
 
 def main():
@@ -53,11 +54,12 @@ def get_combinations(parameters: Dict) -> List[Dict]:
 def run_training(hyperparameters):
     model = FillSimNet(2, 64, 2, hyperparameters["num_conv_layers"])
     criterion = torch.nn.CrossEntropyLoss()
+    dataset_conf = (hyperparameters["connection_range"], hyperparameters["time_step_size"])
+    skip_processing = dataset_conf == last_dataset_conf
     dataset = InjectionMoldingDataset(
-        DATA_DIR,
-        hyperparameters["connection_range"],
-        hyperparameters["time_step_size"],
-        skip_processing=False)
+        Config.DATA_DIR,
+        *dataset_conf,
+        skip_processing=skip_processing)
 
     t = Training(model, criterion, dataset, batch_size=8, num_epochs=3)
     t.run()
