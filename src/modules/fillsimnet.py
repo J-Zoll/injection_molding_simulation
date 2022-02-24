@@ -20,19 +20,16 @@ class FillSimNet (nn.Module):
         # decoder
         self.decoder = MLP(node_emb_size, node_emb_size, node_out_size)
 
-    def forward(self, x, edge_index, edge_weight):
+    def forward(self, data):
         # encoding
-        x = self.encoder(x)
+        x = self.encoder(data.x)
 
         # message passing
         for layer in self.processor:
-            x = layer(x, edge_index, edge_weight=edge_weight)
+            x = layer(x, data.edge_index, edge_weight=data.edge_weight)
             x = F.relu(x)
 
         # decoding
         x = self.decoder(x)
-
-        # classification
-        # x = F.softmax(x, dim=1)
 
         return x
