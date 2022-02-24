@@ -8,6 +8,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Dataset, Data
+from torch_geometric.loader import DataListLoader
 
 
 class Evaluation:
@@ -15,6 +16,8 @@ class Evaluation:
 
     def __init__(self, model: torch.nn.Module, dataset: Dataset):
         self.model = model
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(device=self.device)
         self.dataset = dataset
 
         self.tn = None
@@ -29,12 +32,10 @@ class Evaluation:
         self.f1 = None
         self.roc_auc = None
 
-        self._run()
-
-    def _run(self):
+    def run(self):
         """Make predictions and calculate scores"""
         y_true, y_pred = self.make_predictions()
-        self.tn, self.fp, self.fn, self.tp = confusion_matrix(y_true, y_pred).ravel()
+        self.tn, self.fp, self.fn, self.tp = confusion_matrix(y_true, y_pred).ravel().tolist()
         self.total = len(y_pred)
         self.accuracy = accuracy_score(y_true, y_pred)
         self.balanced_accuracy = balanced_accuracy_score(y_true, y_pred)
@@ -45,22 +46,16 @@ class Evaluation:
 
     def make_predictions(self):
         """Get truth and predictions from dataset"""
-        y_true = []
-        y_pred = []
-        with mp.Pool() as pool:
-            ys = [x for x in tqdm(pool.imap_unordered(self.predict, self.dataset), total=len(self.dataset))]
-        for yt, yp in ys:
-            y_true += yt
-            y_pred += yp
-        return y_true, y_pred
-
-    def predict(self, d: Data):
         with torch.no_grad():
-            y_true = d.x[:, 0].tolist()
-            pred_logits = self.model(d.x, d.edge_index, d.edge_weight)
-            pred_prob = F.softmax(pred_logits, dim=1)
-            y_pred = pred_prob.round()[:, 0].tolist()
-        return y_true, y_pred
+            data_loader = DataListLoader(self.dataset, num_workers=1)
+            y_pred = []
+            y_true = []
+            for data_list in tqdm(data_loader):
+                out = self.model(data_list)
+                y_pred_prob = F.softmax(out, dim=1)
+                y_pred += y_pred_prob.round()[:, 0].tolist()
+                y_true += torch.cat([d.y[:, 0] for d in data_list]).tolist()
+        return y_pred, y_true
 
     def save_scores(self, json_file_path):
         """Save scores to a json file"""
