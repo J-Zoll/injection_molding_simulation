@@ -1,129 +1,83 @@
-from typing import Iterable, Tuple, List
 from scipy.spatial import KDTree
 import torch
-from torch import Tensor, LongTensor
 import pandas as pd
 from torch_geometric.data import Data
-import os
+import os.path as osp
+import numpy as np
 
-from .util import binary_aggregate, elementwise_distance, discretize, distance, parse_to_float_list
+
+def parse_to_float_list(string: str):
+    string = string[1:-1]  # remove parenthesis
+    str_numbers = string.split(", ")
+    numbers = [float(f) for f in str_numbers]
+    return tuple(numbers)
 
 
-def calculate_fill_states(
-        step_size: float,
-        fill_times: Iterable[float]
-) -> Iterable[Iterable[bool]]:
+def get_fill_states(fill_times: np.ndarray, step_size: float) -> np.ndarray:
     """Calculates binary fill_states for a list of continuous node
        fill_times.
     """
-    disc_fts = discretize(step_size, fill_times)
-    ft_states = binary_aggregate(step_size, disc_fts, condition="smaller_or_equal")
-    return ft_states
+    num_steps = np.max(fill_times) // step_size + 1
+    ts = np.arange(num_steps + 1) * step_size
+    fill_states = np.array([fill_times <= t for t in ts])
+    return fill_states
     
 
-def calculate_edges(
-        node_positions: Iterable[Tuple[float, float, float]],
-        connection_range: float
-) -> Iterable[Tuple[int, int]]:
+def get_edges(pos: np.ndarray, connection_range: float) -> np.ndarray:
     """Calculates edges. Nodes are connected if their distance is
        smaller or equal to connection_range"""
-    kd_tree = KDTree(node_positions)
-
+    kd_tree = KDTree(pos)
     edges = []
-    for i, pos in enumerate(node_positions):
-        neighbor_indexes = kd_tree.query_ball_point(
-            pos,
-            connection_range,
-            workers=-1,
-            return_sorted=True
-        )
-        for j in [index for index in neighbor_indexes if index > i]:
-            edges.append((i, j))
-    return edges
+    for i, p in enumerate(pos):
+        js = np.array(kd_tree.query_ball_point(p, connection_range, return_sorted=True, workers=-1))
+        js = js[js > i]
+        edges += [[i, j] for j in js]
+    return np.array(edges)
 
 
-def calculate_elementwise_distances(
-        node_positions: List[List[float]],
-        edges: Iterable[Tuple[int, int]]
-) -> List[List[float]]:
-    """Calculates the element-wise distances between connected nodes"""
-    distances = []
-    for i, j in edges:
-        p1 = node_positions[i]
-        p2 = node_positions[j]
-        distances.append(elementwise_distance(p1, p2))
-    return distances
-
-
-def calculate_distances(
-        node_positions: List[Tuple[float, float, float]],
-        edges: Iterable[Tuple[int, int]]
-) -> List[float]:
+def get_distances(node_positions: np.ndarray, edges: np.ndarray) -> np.ndarray:
     """Calculates the euclidean distances between connected nodes"""
-    distances = []
-    for i, j in edges:
-        p1 = node_positions[i]
-        p2 = node_positions[j]
-        distances.append(distance(p1, p2))
-    return distances
+    pos_i = node_positions[edges[:, 0]]
+    pos_j = node_positions[edges[:, 1]]
+    return np.linalg.norm(pos_i - pos_j, axis=1)
 
 
-def encode_fill_state(fill_states: Iterable[bool]) -> List[Tuple[float, float]]:
+def get_fill_state_encodings(fill_states: np.ndarray) -> np.ndarray:
     """Encodes the fill_state as one-hot encoding."""
-    enc_filled = (1.0, 0.0)
-    enc_not_filled = (0.0, 1.0)
+    filled = [1.0, 0.0]
+    not_filled = [0.0, 1.0]
+    return np.array([filled if fs else not_filled for fs in fill_states])
 
-    return [enc_filled if fs else enc_not_filled for fs in fill_states]
+
+def get_data_file_path(raw_file_path: str, output_dir: str, time_step: int):
+    """Returns a unique file path to store a data object"""
+    _, raw_file_name = osp.split(raw_file_path)
+    study_name, _ = osp.splitext(raw_file_name)
+    data_file_name = f"data_{study_name}_{str(time_step).zfill(3)}.pt"
+    data_file_path = osp.join(output_dir, data_file_name)
+    return data_file_path
 
 
-def process_raw_file(
-        raw_file_path: str,
-        output_dir: str,
-        connection_range: float,
-        time_step_size: float
-):
+def process_raw_file(raw_file_path: str, output_dir: str, connection_range: float, time_step_size: float):
     """Process a raw study csv-file into multiple graph data objects stored at output_dir"""
-    df_study = pd.read_csv(raw_file_path)
+    df_study: pd.DataFrame = pd.read_csv(raw_file_path)
 
-    raw_dir, raw_file_name = os.path.split(raw_file_path)
-    study_name, _ = os.path.splitext(raw_file_name)
+    # todo: store positions so that they can be read directly from the dataframe
+    node_positions = np.array([parse_to_float_list(p) for p in df_study.position])
+    edge_list = get_edges(node_positions, connection_range)
+    distances = get_distances(node_positions, edge_list)
+    fill_states = get_fill_states(df_study.fill_time.to_numpy(), time_step_size)
 
-    node_positions = [parse_to_float_list(p) for p in df_study.position]
+    for t, _ in enumerate(fill_states[: -1]):
+        node_attributes = get_fill_state_encodings(fill_states[t])
+        target_node_attributes = get_fill_state_encodings(fill_states[t + 1])
 
-    # calculate edges and edge_distances
-    edge_list = calculate_edges(node_positions, connection_range)
-    edge_index = LongTensor(edge_list).T
-    elementwise_distances = calculate_elementwise_distances(node_positions, edge_list)
-    distances = calculate_distances(node_positions, edge_list)
-
-    # calculate fill_states
-    fill_states = calculate_fill_states(time_step_size, df_study.fill_time)
-
-    for t, _ in enumerate(fill_states[:-1]):
-        # fill_state at the beginning of the time step
-        old_fs = Tensor(encode_fill_state(fill_states[t]))
-        node_attributes = old_fs
-
-        # (prediction goal) fill_state at the end of the time step
-        new_fs = Tensor(encode_fill_state(fill_states[t + 1]))
-        target_node_attributes = new_fs
-
-        edge_attributes = Tensor(elementwise_distances)
-        edge_weight = Tensor(distances)
-
-        node_positions = Tensor(node_positions)
-
-        # create data object
         data = Data(
-            x=node_attributes,
-            edge_index=edge_index,
-            edge_attr=edge_attributes,
-            edge_weight=edge_weight,
-            y=target_node_attributes,
-            pos=node_positions,
-            study=raw_file_path,
-            time=t * time_step_size
+            x=torch.tensor(node_attributes, dtype=torch.float),
+            y=torch.tensor(target_node_attributes, dtype=torch.float),
+            edge_index=torch.from_numpy(edge_list).T,
+            edge_weight=torch.tensor(distances, dtype=torch.float),
+            pos=torch.from_numpy(node_positions)
         )
-        data_file_name = f"data_{study_name}_{str(t).zfill(3)}.pt"
-        torch.save(data, os.path.join(output_dir, data_file_name))
-
+        data_file_path = get_data_file_path(raw_file_path, output_dir, t)
+        torch.save(data, data_file_path)
