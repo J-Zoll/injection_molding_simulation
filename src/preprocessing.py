@@ -1,23 +1,23 @@
+import json
+import os
+import shutil
+import sys
+from tqdm import tqdm
 from scipy.spatial import KDTree
 import torch
-import pandas as pd
 from torch_geometric.data import Data
 import os.path as osp
 import numpy as np
-
-
-def parse_to_float_list(string: str):
-    string = string[1:-1]  # remove parenthesis
-    str_numbers = string.split(", ")
-    numbers = [float(f) for f in str_numbers]
-    return tuple(numbers)
+from config import Config
+import multiprocessing as mp
+import functools
 
 
 def get_fill_states(fill_times: np.ndarray, step_size: float) -> np.ndarray:
     """Calculates binary fill_states for a list of continuous node
        fill_times.
     """
-    num_steps = np.max(fill_times) // step_size + 1
+    num_steps = np.max(fill_times).item() // step_size + 1
     ts = np.arange(num_steps + 1) * step_size
     fill_states = np.array([fill_times <= t for t in ts])
     return fill_states
@@ -59,14 +59,15 @@ def get_data_file_path(raw_file_path: str, output_dir: str, time_step: int):
 
 
 def process_raw_file(raw_file_path: str, output_dir: str, connection_range: float, time_step_size: float):
-    """Process a raw study csv-file into multiple graph data objects stored at output_dir"""
-    df_study: pd.DataFrame = pd.read_csv(raw_file_path)
+    """Process a raw study json-file into multiple graph data objects stored at output_dir"""
+    with open(raw_file_path, "r") as json_file:
+        study_dict = json.load(json_file)
+    node_positions = np.array(study_dict["pos"])
+    node_fill_times = np.array(study_dict["fill_time"])
 
-    # todo: store positions so that they can be read directly from the dataframe
-    node_positions = np.array([parse_to_float_list(p) for p in df_study.position])
     edge_list = get_edges(node_positions, connection_range)
+    fill_states = get_fill_states(node_fill_times, time_step_size)
     distances = get_distances(node_positions, edge_list)
-    fill_states = get_fill_states(df_study.fill_time.to_numpy(), time_step_size)
 
     for t, _ in enumerate(fill_states[: -1]):
         node_attributes = get_fill_state_encodings(fill_states[t])
@@ -81,3 +82,43 @@ def process_raw_file(raw_file_path: str, output_dir: str, connection_range: floa
         )
         data_file_path = get_data_file_path(raw_file_path, output_dir, t)
         torch.save(data, data_file_path)
+
+
+def process(input_dir: str, output_dir: str, connection_range: float, time_step_size: float):
+    raw_file_paths = [osp.join(input_dir, fn) for fn in os.listdir(input_dir) if not fn.startswith(".")]
+    for rfp in tqdm(raw_file_paths, desc="process"):
+        process_raw_file(rfp, output_dir, connection_range, time_step_size)
+
+
+def process_parallel(input_dir: str, output_dir: str, connection_range: float, time_step_size: float):
+    raw_file_paths = [osp.join(input_dir, fn) for fn in os.listdir(input_dir) if not fn.startswith(".")]
+    processing_function = functools.partial(
+        process_raw_file,
+        output_dir=output_dir,
+        connection_range=connection_range,
+        time_step_size=time_step_size
+    )
+    pool = mp.Pool(processes=8)
+    for _ in tqdm(pool.imap_unordered(processing_function, raw_file_paths), total=len(raw_file_paths), desc="process"):
+        pass
+    pool.close()
+
+
+def main():
+    input_dir = Config.DATA_DIR / "raw"
+    output_dir = Config.DATA_DIR / "processed"
+
+    shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    connection_range = float(sys.argv[1])
+    time_step_size = float(sys.argv[2])
+
+    if mp.cpu_count() > 8:
+        process(input_dir, output_dir, connection_range, time_step_size)
+    else:
+        process_parallel(input_dir, output_dir, connection_range, time_step_size)
+
+
+if __name__ == "__main__":
+    main()
