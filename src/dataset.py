@@ -1,14 +1,13 @@
 import os
 import sys
 from typing import Union, List, Tuple
-import multiprocessing as mp
 import functools
 
 import torch
 from torch_geometric.data import Dataset
 from tqdm import tqdm
 
-from data_processing import preprocessing
+import preprocessing
 from config import Config
 
 
@@ -43,10 +42,8 @@ class InjectionMoldingDataset(Dataset):
             connection_range=self.connection_range,
             time_step_size=self.time_step_size
         )
-        pool = mp.Pool()
-        for _ in tqdm(pool.imap_unordered(processing_function, self.raw_paths), total=len(self.raw_paths)):
-            pass
-        pool.close()
+        for rp in tqdm(self.raw_paths):
+            processing_function(rp)
 
     def len(self):
         return len(self.processed_file_names)
