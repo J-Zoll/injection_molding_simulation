@@ -1,0 +1,5 @@
+Dataset:
+    - connection_range: 0.004
+    - time_step_size: 0.03
+
+    Trained on a sample of size 1000 (800 train, 200 test) (random seed 42)
