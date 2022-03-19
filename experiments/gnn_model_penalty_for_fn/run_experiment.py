@@ -50,7 +50,7 @@ def loss_function(input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 if __name__ == "__main__":
     torch.manual_seed(42)
 
-    EXPERIMENT_NAME = "baseline_gnn_model"
+    EXPERIMENT_NAME = "baseline"
     CURRENT_EXPERIMENT_DIR = Config.EXPERIMENT_DIR / EXPERIMENT_NAME
     MODEL_OUTPUT_DIR = CURRENT_EXPERIMENT_DIR / "models"
     MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
