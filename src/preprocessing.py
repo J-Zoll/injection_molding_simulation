@@ -32,6 +32,7 @@ def get_edges(pos: np.ndarray, connection_range: float) -> np.ndarray:
         js = np.array(kd_tree.query_ball_point(p, connection_range, return_sorted=True, workers=-1))
         js = js[js > i]
         edges += [[i, j] for j in js]
+        edges += [[j, i] for j in js]
     return np.array(edges)
 
 
